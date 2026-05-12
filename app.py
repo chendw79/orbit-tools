@@ -29,6 +29,15 @@ from utils.code_tools import count_lines, list_templates, get_template, format_s
 from utils.qr_tools import generate_qr, generate_wifi_qr, generate_vcard_qr
 from utils.color_tools import extract_colors, generate_palette, hex_to_rgb, rgb_to_hex, list_gradients
 
+# 照片修复（尝试加载skills目录）
+PHOTO_RESTORE_AVAILABLE = False
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'skills'))
+    from photo_restoration import PhotoRestorer
+    PHOTO_RESTORE_AVAILABLE = True
+except ImportError:
+    pass
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.config['SECRET_KEY'] = os.urandom(24).hex()
@@ -385,6 +394,42 @@ def api_qr_generate():
 
 
 # ═══════════════════════════════════════════════════
+#  API: 老照片修复
+# ═══════════════════════════════════════════════════
+
+@app.route('/api/restore', methods=['POST'])
+def api_restore():
+    """照片修复/翻新"""
+    if not PHOTO_RESTORE_AVAILABLE:
+        return jsonify({'success': False, 'error': '照片修复模块未加载'})
+    
+    file = request.files.get('image')
+    if not file:
+        return jsonify({'success': False, 'error': '请上传图片'})
+    upscale = request.form.get('upscale', 'true').lower() == 'true'
+    
+    try:
+        t0 = time.time()
+        data = file.read()
+        info = PhotoRestorer.info(data)
+        is_bw = PhotoRestorer.is_black_white(data)
+        result = PhotoRestorer.full_restore(data, upscale=upscale)
+        elapsed = time.time() - t0
+        filename = f'restored_{uuid.uuid4().hex[:8]}.jpg'
+        filepath = os.path.join(UPLOAD_DIR, filename)
+        with open(filepath, 'wb') as f:
+            f.write(result)
+        preview_b64 = base64.b64encode(result).decode()
+        return jsonify({'success': True, 'download_url': f'/download/{filename}',
+            'preview_data': f'data:image/jpeg;base64,{preview_b64}',
+            'info': info, 'is_black_white': is_bw,
+            'size_before': len(data), 'size_after': len(result),
+            'time_ms': int(elapsed * 1000)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# ═══════════════════════════════════════════════════
 #  API: 色彩工具
 # ═══════════════════════════════════════════════════
 
@@ -508,12 +553,13 @@ def download(filename: str):
 def api_status():
     return jsonify(ok({
         'name': 'Orbit Tools',
-        'version': '0.3.1',
+        'version': '0.4.0',
         'templates': len(TEMPLATES),
+        'photo_restore': PHOTO_RESTORE_AVAILABLE,
         'tools': [
             'PPT生成(8模板+实时预览)',
-            '背景移除',
-            '图片压缩/格式转换',
+            '老照片修复(去噪/彩色增强/高清)',
+            '背景移除/压缩/格式转换',
             '文本统计/JSON/Base64',
             '二维码生成(Wi-Fi/名片)',
             '色彩工具(调色板/取色/渐变)',
