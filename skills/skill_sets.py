@@ -235,11 +235,13 @@ class DataReporter:
 # 4. PPT Skill（引用已有的）
 # ═══════════════════════════════════════════════
 
+PPTGenerator = None  # 引用已有，独立运行时忽略
 try:
+    import sys
+    sys.path.insert(0, '/root/.openclaw/workspace/projects/aitools/utils')
     from ppt_generator import PPTGenerator
-except ImportError:
-    from utils.ppt_generator import PPTGenerator
-# 直接使用已有的PPT生成器
+except Exception:
+    pass
 
 
 # ═══════════════════════════════════════════════
