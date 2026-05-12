@@ -108,6 +108,13 @@ try:
 except ImportError as e:
     SKILLS_LOADED = False
 
+# 音视频技能加载
+try:
+    from audio_video import AudioProcessor, VideoProcessor, SKILL_MANIFEST_UPDATE
+    AV_LOADED = True
+except ImportError:
+    AV_LOADED = False
+
 # ─── 才虫 快速扫描+自动接单 ──────────────────────────────
 def check_caichong_new_tasks():
     """扫描才虫新任务 — 自动匹配、展示、准备接单"""
@@ -161,10 +168,14 @@ def check_caichong_new_tasks():
             if "PPT生成" not in match_reasons: match_reasons.append("PPT生成")
         if any(w in desc_lower for w in ["图", "画", "设计", "海报", "logo", "banner", "图片", "image"]):
             match_reasons.append("图片处理")
-        if any(w in desc_lower for w in ["音频", "音乐", "配乐", "audio", "music", "sound", "播客"]):
+        if any(w in desc_lower for w in ["音频", "音乐", "配乐", "audio", "music", "sound", "播客", "配音", "录音", "语音", "voice", "podcast"]):
             match_reasons.append("音频处理")
-        if any(w in desc_lower for w in ["视频", "剪辑", "video", "剪映", "抖音", "短视频", "vlog"]):
+        if any(w in desc_lower for w in ["视频", "剪辑", "video", "剪映", "抖音", "短视频", "vlog", "录屏", "快手", "b站", "bilibili", "影视"]):
             match_reasons.append("视频处理")
+        if any(w in desc_lower for w in ["语音转", "听写", "字幕", "转录", "转写", "stt", "transcribe"]):
+            match_reasons.append("语音转文字")
+        if any(w in desc_lower for w in ["文字转语音", "配音", "朗读", "有声", "tts", "语音合成"]):
+            match_reasons.append("文字转语音")
         if any(w in desc_lower for w in ["小红书", "种草", "xhs", "red"]):
             if "写作" not in match_reasons: match_reasons.append("小红书文案")
 
@@ -204,6 +215,8 @@ if __name__ == "__main__":
     if now_min < 2:
         if SKILLS_LOADED:
             log(skill_summary())
+            audio_line = "✅ 音频处理/视频处理/语音转文字/TTS" if AV_LOADED else "⚠️ 音视频包未加载"
+            log(f"  {audio_line}")
             log("🚀 Orbit 已就绪，随时准备干活!")
         else:
             log("⚠️ 技能包未加载")
