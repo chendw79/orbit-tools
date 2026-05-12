@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>图片工具箱 — Orbit Tools</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#111827;--border:#1e293b;--text:#f1f5f9;--text2:#94a3b8;--accent:#3b82f6;--green:#10b981;--red:#ef4444}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0a0e1a,#1a1040,#0a0e1a);color:var(--text);min-height:100vh}
+.header{padding:15px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(17,24,39,0.8)}
+.header a{color:var(--text2);text-decoration:none;font-size:14px}
+.container{max-width:960px;margin:0 auto;padding:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.grid{grid-template-columns:1fr}}
+.drop-zone{border:2px dashed var(--border);border-radius:16px;padding:40px 20px;text-align:center;cursor:pointer;transition:.3s;background:#1a2332}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--accent);background:rgba(59,130,246,.05)}
+.drop-zone.dragover{border-color:var(--green);background:rgba(16,185,129,.05)}
+.drop-zone.has-file{border-color:var(--green);padding:20px}
+.drop-text{color:var(--text2);font-size:14px;line-height:1.6}
+.drop-text .icon{font-size:40px;display:block;margin-bottom:8px}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;transition:.2s;font-size:13px}
+.btn:hover{background:#2563eb;transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* 结果卡片 */
+.result{display:none;margin-top:12px;padding:16px;background:#1a2332;border-radius:12px}
+.result h4{font-size:14px;color:var(--green);margin-bottom:8px}
+.result .stats{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}
+.result .stat{background:rgba(16,185,129,.1);padding:4px 10px;border-radius:6px;font-size:12px;color:var(--green)}
+.result a{display:inline-block;padding:8px 16px;background:var(--green);color:#fff;border-radius:8px;text-decoration:none;margin-top:8px;font-weight:500;font-size:13px}
+.preview-img{max-width:200px;max-height:150px;border-radius:8px;margin-top:8px}
+.tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;background:var(--bg);color:var(--text2);border:1px solid var(--border);border-bottom:none}
+.tab.active{background:var(--card);color:var(--text)}
+.file-info{margin:8px 0;font-size:12px;color:var(--text2)}
+select{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#1a2332;color:var(--text)}</style>
+</head>
+<body>
+<div class="header"><a href="/">← 返回</a><span style="font-weight:600">🖼️ 图片工具箱  ·  拖拽上传</span></div>
+<div class="container">
+  <div class="card">
+    <div class="tabs" id="tabs">
+      <div class="tab active" onclick="switchTab('removebg')">🎭 背景移除</div>
+      <div class="tab" onclick="switchTab('compress')">📦 图片压缩</div>
+      <div class="tab" onclick="switchTab('convert')">🔄 格式转换</div>
+    </div>
+    
+    <!-- 拖拽上传 -->
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-text">
+        <span class="icon">📁</span>
+        拖拽图片到此处
+        <br><span style="font-size:12px">或点击选择文件 · 支持 JPG/PNG/WebP 最大16MB</span>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="onFileSelect(event)">
+    </div>
+    
+    <div class="file-info" id="fileInfo"></div>
+    
+    <!-- 各模式参数 -->
+    <div id="removebgOpts" style="margin-top:10px">
+      <button class="btn" id="removeBgBtn" onclick="removeBg()">✨ 移除背景</button>
+    </div>
+    
+    <div id="compressOpts" style="display:none;margin-top:10px">
+      <div style="margin-bottom:8px">
+        <span style="font-size:13px;color:var(--text2)">压缩质量: <span id="qualityVal">70%</span></span>
+        <input type="range" min="10" max="100" value="70" style="width:100%;margin-top:4px"
+               oninput="document.getElementById('qualityVal').textContent=this.value+'%'">
+      </div>
+      <button class="btn" id="compressBtn" onclick="compressImg()">📉 压缩</button>
+    </div>
+    
+    <div id="convertOpts" style="display:none;margin-top:10px">
+      <select id="targetFormat">
+        <option value="PNG">PNG 无损格式</option>
+        <option value="JPEG">JPEG 有损格式</option>
+        <option value="WEBP">WebP 现代格式</option>
+      </select>
+      <button class="btn" id="convertBtn" onclick="convertImg()" style="margin-top:8px">🔄 转换</button>
+    </div>
+  </div>
+  
+  <!-- 结果展示 -->
+  <div class="result" id="resultArea">
+    <h4 id="resultTitle">✅ 处理完成</h4>
+    <div id="resultContent"></div>
+  </div>
+  
+  <!-- 预览 -->
+  <div class="card" id="previewCard" style="display:none">
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+      <div><p style="font-size:12px;color:var(--text2);margin-bottom:4px">原图</p><img id="previewOriginal" style="max-width:200px;max-height:150px;border-radius:8px"></div>
+      <div><p style="font-size:12px;color:var(--text2);margin-bottom:4px">处理后</p><img id="previewResult" class="preview-img"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentFile = null;
+let currentTab = 'removebg';
+
+// 拖拽
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+dropZone.addEventListener('click', () => fileInput.click());
+
+function onFileSelect(e) { if (e.target.files.length) handleFile(e.target.files[0]); }
+
+function handleFile(file) {
+  if (!file.type.startsWith('image/')) { alert('请上传图片'); return; }
+  currentFile = file;
+  const size = (file.size / 1024).toFixed(0);
+  document.getElementById('fileInfo').textContent = `📄 ${file.name} (${size}KB)`;
+  dropZone.classList.add('has-file');
+  
+  // 原图预览
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('previewOriginal').src = e.target.result;
+    document.getElementById('previewCard').style.display = 'block';
+    document.getElementById('previewResult').src = '';
+  };
+  reader.readAsDataURL(file);
+  document.getElementById('resultArea').style.display = 'none';
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+  ['removebgOpts', 'compressOpts', 'convertOpts'].forEach(id => document.getElementById(id).style.display = id.includes(tab) ? 'block' : 'none');
+  document.getElementById('resultArea').style.display = 'none';
+}
+
+function getFormData() {
+  const fd = new FormData();
+  if (!currentFile) { alert('请先上传图片'); return null; }
+  fd.append('image', currentFile);
+  return fd;
+}
+
+async function removeBg() {
+  const fd = getFormData(); if (!fd) return;
+  disableAll(true);
+  try {
+    const r = await fetch('/api/image/remove-bg', { method:'POST', body:fd });
+    const j = await r.json();
+    if (j.success) {
+      document.getElementById('resultTitle').textContent = '✅ 背景移除成功';
+      document.getElementById('resultContent').innerHTML = `
+        <div class="stats">
+          <span class="stat">原始: ${(j.size_before/1024).toFixed(0)}KB</span>
+          <span class="stat">处理后: ${(j.size_after/1024).toFixed(0)}KB</span>
+          <span class="stat">耗时: ${j.time_ms}ms</span>
+        </div>
+        <a href="${j.download_url}">⬇️ 下载PNG</a>
+      `;
+      document.getElementById('previewResult').src = j.preview_data;
+      document.getElementById('resultArea').style.display = 'block';
+    } else alert(j.error);
+  } catch(e) { alert('失败: '+e.message); }
+  disableAll(false);
+}
+
+async function compressImg() {
+  const fd = getFormData(); if (!fd) return;
+  fd.append('quality', parseInt(document.getElementById('qualityVal').textContent));
+  disableAll(true);
+  try {
+    const r = await fetch('/api/image/compress', { method:'POST', body:fd });
+    const j = await r.json();
+    if (j.success) {
+      document.getElementById('resultTitle').textContent = '✅ 压缩完成';
+      document.getElementById('resultContent').innerHTML = `
+        <div class="stats">
+          <span class="stat">原始: ${(j.size_before/1024).toFixed(0)}KB</span>
+          <span class="stat">压缩后: ${(j.size_after/1024).toFixed(0)}KB</span>
+          <span class="stat">节省 ${j.saved_percent}%</span>
+        </div>
+        <a href="${j.download_url}">⬇️ 下载</a>
+      `;
+      document.getElementById('previewResult').src = j.preview_data;
+      document.getElementById('resultArea').style.display = 'block';
+    } else alert(j.error);
+  } catch(e) { alert('失败: '+e.message); }
+  disableAll(false);
+}
+
+async function convertImg() {
+  const fd = getFormData(); if (!fd) return;
+  fd.append('format', document.getElementById('targetFormat').value);
+  disableAll(true);
+  try {
+    const r = await fetch('/api/image/convert', { method:'POST', body:fd });
+    const j = await r.json();
+    if (j.success) {
+      document.getElementById('resultTitle').textContent = `✅ 已转换为 ${j.format}`;
+      document.getElementById('resultContent').innerHTML = `<a href="${j.download_url}">⬇️ 下载 ${j.format}</a>`;
+      document.getElementById('previewResult').src = j.preview_data;
+      document.getElementById('resultArea').style.display = 'block';
+    } else alert(j.error);
+  } catch(e) { alert('失败: '+e.message); }
+  disableAll(false);
+}
+
+function disableAll(v) {
+  document.getElementById('removeBgBtn').disabled = v;
+  document.getElementById('compressBtn').disabled = v;
+  document.getElementById('convertBtn').disabled = v;
+  if (v) document.querySelector('.btn').textContent = '处理中…';
+}
+</script>
+</body>
+</html>
