@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>二维码生成 — Orbit Tools</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#111827;--border:#1e293b;--text:#f1f5f9;--text2:#94a3b8;--accent:#3b82f6;--green:#10b981}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0a0e1a,#1a1040,#0a0e1a);color:var(--text);min-height:100vh}
+.header{padding:15px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(17,24,39,0.8)}
+.header a{color:var(--text2);text-decoration:none;font-size:14px}
+.container{max-width:960px;margin:0 auto;padding:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:16px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.grid-2{grid-template-columns:1fr}}
+.tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;background:var(--bg);color:var(--text2);border:1px solid var(--border);border-bottom:none}
+.tab.active{background:var(--card);color:var(--text)}
+input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#1a2332;color:var(--text);font-size:14px;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+label{font-size:13px;color:var(--text2);margin-bottom:4px;display:block}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 24px;cursor:pointer;transition:.2s;font-size:14px}
+.btn:hover{background:#2563eb;transform:translateY(-1px)}
+.color-row{display:flex;gap:12px;align-items:center}
+.color-row input[type="color"]{width:50px;height:40px;padding:2px;cursor:pointer}
+.qr-result{display:none;text-align:center}
+.qr-result img{max-width:300px;border-radius:12px;background:#fff;padding:16px;margin:12px 0}
+</style>
+</head>
+<body>
+<div class="header"><a href="/">← 返回</a><span style="font-weight:600">🔲 二维码生成器</span></div>
+<div class="container">
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchMode('text')">📝 文本</div>
+      <div class="tab" onclick="switchMode('wifi')">📶 Wi-Fi</div>
+      <div class="tab" onclick="switchMode('vcard')">📇 名片</div>
+    </div>
+    
+    <!-- 文本模式 -->
+    <div id="textMode">
+      <label>内容</label>
+      <input id="qrData" placeholder="输入 URL、文本、电话(tel:)、邮箱(mailto:)…" value="https://github.com/chendw79/orbit-tools">
+    </div>
+    
+    <!-- Wi-Fi 模式 -->
+    <div id="wifiMode" style="display:none">
+      <label>Wi-Fi 名称 (SSID)</label>
+      <input id="wifiSsid" placeholder="例如: HomeWiFi_5G">
+      <label style="margin-top:8px">密码</label>
+      <input id="wifiPass" type="password" placeholder="Wi-Fi 密码">
+      <label style="margin-top:8px">加密方式</label>
+      <select id="wifiEncrypt"><option value="WPA">WPA/WPA2</option><option value="WEP">WEP</option><option value="nopass">无密码</option></select>
+      <label style="margin-top:8px"><input type="checkbox" id="wifiHidden"> 隐藏网络</label>
+    </div>
+    
+    <!-- 名片模式 -->
+    <div id="vcardMode" style="display:none">
+      <div class="grid-2">
+        <div><label>姓名</label><input id="vcName" placeholder="姓名"></div>
+        <div><label>电话</label><input id="vcPhone" placeholder="手机号"></div>
+        <div><label>邮箱</label><input id="vcEmail" placeholder="email@example.com"></div>
+        <div><label>公司</label><input id="vcOrg" placeholder="公司名称"></div>
+      </div>
+    </div>
+    
+    <div class="color-row" style="margin:12px 0">
+      <div><label>前景色</label><input type="color" id="fgColor" value="#000000"></div>
+      <div><label>背景色</label><input type="color" id="bgColor" value="#ffffff"></div>
+    </div>
+    
+    <button class="btn" onclick="generateQR()" style="width:100%">🔲 生成二维码</button>
+  </div>
+  
+  <div class="card qr-result" id="qrResult">
+    <div id="qrImage"></div>
+    <div id="qrInfo" style="font-size:12px;color:var(--text2)"></div>
+    <button class="btn btn-green" style="margin-top:8px" onclick="downloadQR()">⬇ 下载 PNG</button>
+  </div>
+</div>
+
+<script>
+let qrDataUrl = '';
+
+function switchMode(mode) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="'${mode}'"]`).classList.add('active');
+  ['textMode','wifiMode','vcardMode'].forEach(id => document.getElementById(id).style.display = id.includes(mode) ? 'block' : 'none');
+  document.getElementById('qrResult').style.display = 'none';
+}
+
+async function generateQR() {
+  let active = document.querySelector('.tab.active');
+  let mode = 'text';
+  if (active.textContent.includes('Wi-Fi')) mode = 'wifi';
+  else if (active.textContent.includes('名片')) mode = 'vcard';
+  
+  let params = {mode};
+  
+  if (mode === 'text') {
+    const data = document.getElementById('qrData').value.trim();
+    if (!data) { alert('请输入内容'); return; }
+    params.data = data;
+  } else if (mode === 'wifi') {
+    const ssid = document.getElementById('wifiSsid').value.trim();
+    if (!ssid) { alert('请输入Wi-Fi名称'); return; }
+    params.ssid = ssid;
+    params.password = document.getElementById('wifiPass').value;
+    params.encryption = document.getElementById('wifiEncrypt').value;
+    params.hidden = document.getElementById('wifiHidden').checked;
+  } else if (mode === 'vcard') {
+    params.name = document.getElementById('vcName').value.trim();
+    params.phone = document.getElementById('vcPhone').value.trim();
+    params.email = document.getElementById('vcEmail').value.trim();
+    params.org = document.getElementById('vcOrg').value.trim();
+    if (!params.name) { alert('请输入姓名'); return; }
+  }
+  
+  params.fg_color = document.getElementById('fgColor').value;
+  params.bg_color = document.getElementById('bgColor').value;
+  
+  try {
+    const r = await fetch('/api/qr/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(params)
+    });
+    const j = await r.json();
+    
+    if (j.success) {
+      qrDataUrl = j.image_data;
+      document.getElementById('qrImage').innerHTML = `<img src="${j.image_data}" alt="QR Code">`;
+      document.getElementById('qrInfo').textContent = `类型: ${j.data_type} · ${j.qr_box_count}×${j.qr_box_count} 模块`;
+      document.getElementById('qrResult').style.display = 'block';
+    } else {
+      alert('失败: ' + j.error);
+    }
+  } catch(e) {
+    alert('错误: ' + e.message);
+  }
+}
+
+function downloadQR() {
+  if (!qrDataUrl) return;
+  const a = document.createElement('a');
+  a.href = qrDataUrl;
+  a.download = 'orbit-qrcode.png';
+  a.click();
+}
+</script>
+</body>
+</html>

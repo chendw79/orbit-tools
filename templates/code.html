@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>开发工具包 — Orbit Tools</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#111827;--border:#1e293b;--text:#f1f5f9;--text2:#94a3b8;--accent:#3b82f6;--green:#10b981}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0a0e1a,#1a1040,#0a0e1a);color:var(--text);min-height:100vh}
+.header{padding:15px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(17,24,39,0.8)}
+.header a{color:var(--text2);text-decoration:none;font-size:14px}
+.container{max-width:960px;margin:0 auto;padding:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:16px}
+.tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;background:var(--bg);color:var(--text2);border:1px solid var(--border);border-bottom:none}
+.tab.active{background:var(--card);color:var(--text)}
+textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#1a2332;color:var(--text);font-size:13px;outline:none;resize:vertical;min-height:200px;font-family:'Cascadia Code','Fira Code','Consolas',monospace}
+textarea:focus{border-color:var(--accent)}
+input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#1a2332;color:var(--text);font-size:14px;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+label{font-size:13px;color:var(--text2);margin-bottom:4px;display:block}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 24px;cursor:pointer;transition:.2s;font-size:14px}
+.btn:hover{background:#2563eb;transform:translateY(-1px)}
+.btn-green{background:var(--green)}
+.result-box{display:none;margin-top:12px;padding:16px;background:#1a2332;border-radius:12px}
+.stats{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}
+.stat{background:rgba(16,185,129,.1);padding:4px 10px;border-radius:6px;font-size:12px;color:var(--green)}
+.stat-gray{background:rgba(148,163,184,.1);padding:4px 10px;border-radius:6px;font-size:12px;color:var(--text2)}
+pre{white-space:pre-wrap;font-size:13px;font-family:monospace;padding:8px;background:#0a0e1a;border-radius:8px;max-height:400px;overflow:auto}
+.tmpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.tmpl-item{padding:12px;border-radius:8px;border:1px solid var(--border);cursor:pointer;transition:.2s}
+.tmpl-item:hover{border-color:var(--accent);background:rgba(59,130,246,.05)}
+</style>
+</head>
+<body>
+<div class="header"><a href="/">← 返回</a><span style="font-weight:600">🔧 开发工具包 · 代码/模板/统计</span></div>
+<div class="container">
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('count')">📏 代码统计</div>
+      <div class="tab" onclick="switchTab('template')">📦 代码模板</div>
+      <div class="tab" onclick="switchTab('sqlfmt')">🗄️ SQL 格式化</div>
+    </div>
+    
+    <!-- 代码统计 -->
+    <div id="countMode">
+      <label>选择语言</label>
+      <select id="codeLang">
+        <option value="python">Python</option>
+        <option value="javascript">JavaScript</option>
+        <option value="java">Java</option>
+        <option value="html">HTML</option>
+        <option value="css">CSS</option>
+      </select>
+      <textarea id="codeInput" placeholder="粘贴代码…">#!/usr/bin/env python3
+"""Hello World"""
+
+import sys
+
+def main():
+    print("Hello, Orbit!")
+    
+if __name__ == '__main__':
+    main()</textarea>
+      <button class="btn" onclick="doCount()" style="margin-top:8px">📏 统计代码</button>
+    </div>
+    
+    <!-- 代码模板 -->
+    <div id="templateMode" style="display:none">
+      <p id="tmplGrid"></p>
+      <div class="tmpl-grid" id="tmplList"></div>
+      <div id="tmplResult" class="result-box" style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span id="tmplName" style="font-weight:600"></span>
+          <button class="btn" style="padding:6px 12px;font-size:12px" onclick="copyTmpl()">📋 复制</button>
+        </div>
+        <pre id="tmplCode"></pre>
+      </div>
+    </div>
+    
+    <!-- SQL格式化 -->
+    <div id="sqlfmtMode" style="display:none">
+      <textarea id="sqlInput" placeholder="粘贴 SQL…" style="min-height:150px">SELECT id,name,email FROM users WHERE status='active' AND created_at > '2025-01-01' ORDER BY id DESC LIMIT 10</textarea>
+      <button class="btn" onclick="doSql()" style="margin-top:8px">🗄️ 格式化 SQL</button>
+    </div>
+  </div>
+  
+  <div class="card result-box" id="resultArea">
+    <h4 id="resultTitle" style="font-size:14px;margin-bottom:8px"></h4>
+    <div id="resultContent"></div>
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="'${tab}'"]`).classList.add('active');
+  ['countMode','templateMode','sqlfmtMode'].forEach(id => {
+    document.getElementById(id).style.display = id.includes(tab) ? 'block' : 'none';
+  });
+  document.getElementById('resultArea').style.display = 'none';
+}
+
+async function doCount() {
+  const code = document.getElementById('codeInput').value;
+  const lang = document.getElementById('codeLang').value;
+  if (!code) { alert('请输入代码'); return; }
+  const r = await fetch('/api/code/count', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code, language: lang}) });
+  const j = await r.json();
+  if (j.success) {
+    document.getElementById('resultTitle').textContent = '📏 代码统计';
+    document.getElementById('resultContent').innerHTML = `
+      <div class="stats">
+        <span class="stat">总行数: ${j.counts.total}</span>
+        <span class="stat">代码: ${j.counts.code}</span>
+        <span class="stat-gray">注释: ${j.counts.comments}</span>
+        <span class="stat-gray">空行: ${j.counts.blank}</span>
+      </div>
+      <div style="margin-top:8px;background:#0a0e1a;border-radius:8px;padding:12px;font-size:12px">
+        <div style="height:20px;background:#1e293b;border-radius:10px;overflow:hidden;display:flex">
+          <div style="width:${(j.counts.code/j.counts.total*100).toFixed(0)}%;background:#10b981;display:flex;align-items:center;justify-content:center">${j.counts.code}</div>
+          <div style="width:${(j.counts.comments/j.counts.total*100).toFixed(0)}%;background:#3b82f6;display:flex;align-items:center;justify-content:center">${j.counts.comments}</div>
+          <div style="width:${(j.counts.blank/j.counts.total*100).toFixed(0)}%;background:#64748b;display:flex;align-items:center;justify-content:center">${j.counts.blank}</div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:6px">
+          <span style="color:#10b981">■ 代码</span>
+          <span style="color:#3b82f6">■ 注释</span>
+          <span style="color:#64748b">■ 空行</span>
+        </div>
+      </div>`;
+    document.getElementById('resultArea').style.display = 'block';
+  }
+}
+
+// --- 代码模板 ---
+async function loadTemplates() {
+  const r = await fetch('/api/code/templates');
+  const j = await r.json();
+  const list = document.getElementById('tmplList');
+  list.innerHTML = Object.entries(j.templates).map(([key, val]) =>
+    `<div class="tmpl-item" onclick="getTemplate('${key}')">
+      <div style="font-weight:600;margin-bottom:4px">${val.name}</div>
+      <div style="font-size:11px;color:var(--text2)">${val.desc}</div>
+    </div>`
+  ).join('');
+}
+loadTemplates();
+
+async function getTemplate(id) {
+  const r = await fetch('/api/code/template', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({template_id: id}) });
+  const j = await r.json();
+  if (j.success) {
+    document.getElementById('tmplName').textContent = j.name;
+    document.getElementById('tmplCode').textContent = j.code;
+    document.getElementById('tmplResult').style.display = 'block';
+  }
+}
+
+function copyTmpl() {
+  const code = document.getElementById('tmplCode').textContent;
+  navigator.clipboard.writeText(code).then(() => {}).catch(() => alert('复制失败，请手动选择复制'));
+}
+
+// --- SQL ---
+async function doSql() {
+  const sql = document.getElementById('sqlInput').value;
+  if (!sql) { alert('请输入 SQL'); return; }
+  const r = await fetch('/api/code/sql', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sql}) });
+  const j = await r.json();
+  document.getElementById('resultArea').style.display = 'block';
+  if (j.success) {
+    document.getElementById('resultTitle').textContent = '🗄️ SQL 格式化';
+    document.getElementById('resultContent').innerHTML = `<pre style="color:var(--green)">${j.formatted}</pre>`;
+  } else {
+    document.getElementById('resultTitle').textContent = '❌ 错误';
+    document.getElementById('resultContent').innerHTML = `<div style="color:#ef4444">${j.error}</div>`;
+  }
+}
+</script>
+</body>
+</html>

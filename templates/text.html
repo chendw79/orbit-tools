@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>文本工具 — Orbit Tools</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#111827;--border:#1e293b;--text:#f1f5f9;--text2:#94a3b8;--accent:#3b82f6;--green:#10b981}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0a0e1a,#1a1040,#0a0e1a);color:var(--text);min-height:100vh}
+.header{padding:15px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(17,24,39,0.8)}
+.header a{color:var(--text2);text-decoration:none;font-size:14px}
+.container{max-width:960px;margin:0 auto;padding:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:16px}
+.tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;background:var(--bg);color:var(--text2);border:1px solid var(--border);border-bottom:none}
+.tab.active{background:var(--card);color:var(--text)}
+textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#1a2332;color:var(--text);font-size:14px;outline:none;resize:vertical;min-height:200px;font-family:monospace}
+textarea:focus{border-color:var(--accent)}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 24px;cursor:pointer;transition:.2s;font-size:14px;white-space:nowrap}
+.btn:hover{background:#2563eb;transform:translateY(-1px)}
+.btn-green{background:var(--green)}
+.result-box{display:none;margin-top:12px;padding:16px;background:#1a2332;border-radius:12px}
+.stats{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}
+.stat{background:rgba(16,185,129,.1);padding:4px 10px;border-radius:6px;font-size:12px;color:var(--green)}
+.stat-gray{background:rgba(148,163,184,.1);padding:4px 10px;border-radius:6px;font-size:12px;color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="header"><a href="/">← 返回</a><span style="font-weight:600">📝 文本工具箱</span></div>
+<div class="container">
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('stats')">📊 统计</div>
+      <div class="tab" onclick="switchTab('json')">🔧 JSON</div>
+      <div class="tab" onclick="switchTab('base64')">🔐 Base64</div>
+      <div class="tab" onclick="switchTab('diff')">📋 对比</div>
+    </div>
+    
+    <textarea id="textInput" placeholder="在此输入或粘贴文本…"></textarea>
+    
+    <div id="statsOpts" style="margin-top:10px">
+      <button class="btn" onclick="doStats()">📊 分析文本</button>
+    </div>
+    <div id="jsonOpts" style="display:none;margin-top:10px">
+      <button class="btn" onclick="doJson('format')">格式化 JSON</button>
+      <button class="btn" onclick="doJson('compress')" style="margin-left:4px">压缩 JSON</button>
+      <button class="btn btn-green" onclick="doJson('validate')" style="margin-left:4px">校验</button>
+    </div>
+    <div id="base64Opts" style="display:none;margin-top:10px">
+      <button class="btn" onclick="doBase64('encode')">编码 →</button>
+      <button class="btn btn-green" onclick="doBase64('decode')" style="margin-left:4px">解码 ←</button>
+    </div>
+    <div id="diffOpts" style="display:none;margin-top:10px">
+      <label style="font-size:13px;color:var(--text2);margin-bottom:4px;display:block">对比文本 2:</label>
+      <textarea id="diffInput2" style="min-height:120px" placeholder="粘贴要对比的文本…"></textarea>
+      <button class="btn" onclick="doDiff()">📋 对比</button>
+    </div>
+  </div>
+  
+  <div class="card result-box" id="resultArea" style="padding:16px">
+    <h4 id="resultTitle" style="font-size:14px;margin-bottom:8px"></h4>
+    <div id="resultContent"></div>
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="'${tab}'"]`).classList.add('active');
+  ['statsOpts','jsonOpts','base64Opts','diffOpts'].forEach(id => {
+    document.getElementById(id).style.display = id.includes(tab) ? 'block' : 'none';
+  });
+  document.getElementById('resultArea').style.display = 'none';
+}
+
+function getText() { return document.getElementById('textInput').value; }
+function setResult(text) { document.getElementById('textInput').value = text; }
+
+async function doStats() {
+  const text = getText();
+  if (!text) { alert('请输入文本'); return; }
+  const r = await fetch('/api/text/stats', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text}) });
+  const j = await r.json();
+  if (j.success) {
+    document.getElementById('resultTitle').textContent = '📊 文本统计';
+    document.getElementById('resultContent').innerHTML = `
+      <div class="stats">
+        <span class="stat">中文字: ${j.stats.chinese_chars}</span>
+        <span class="stat">英文词: ${j.stats.english_words}</span>
+        <span class="stat">总字符: ${j.stats.total_chars}</span>
+        <span class="stat-gray">段落: ${j.stats.paragraphs}</span>
+        <span class="stat-gray">标点: ${j.stats.punctuation}</span>
+        <span class="stat-gray">数字: ${j.stats.numbers}</span>
+        <span class="stat-gray">阅读约 ${j.stats.estimated_reading_time} 分钟</span>
+      </div>`;
+    document.getElementById('resultArea').style.display = 'block';
+  }
+}
+
+async function doJson(action) {
+  const text = getText();
+  if (!text) { alert('请输入 JSON'); return; }
+  const r = await fetch('/api/text/json', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text, action}) });
+  const j = await r.json();
+  
+  document.getElementById('resultArea').style.display = 'block';
+  if (j.success) {
+    if (action === 'format' || action === 'compress') {
+      document.getElementById('resultTitle').textContent = `✅ JSON ${action==='format'?'格式化':'压缩'} 成功`;
+      document.getElementById('resultContent').innerHTML = `<pre style="white-space:pre-wrap;font-size:13px;color:var(--green)">${j.formatted}</pre><button class="btn" style="margin-top:8px;padding:6px 12px;font-size:12px" onclick="copyText('${j.formatted.replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/`/g,'\\`')}')">📋 复制</button>`;
+    } else {
+      document.getElementById('resultTitle').textContent = '✅ JSON 校验通过';
+      document.getElementById('resultContent').innerHTML = `<div class="stat">类型: ${j.data_type}</div>`;
+    }
+  } else {
+    document.getElementById('resultTitle').textContent = '❌ 错误';
+    document.getElementById('resultContent').innerHTML = `<div style="color:#ef4444;font-size:13px">${j.error} (行${j.error_line}, 列${j.error_col})</div>`;
+  }
+}
+
+async function doBase64(action) {
+  const text = getText();
+  if (!text) { alert('请输入文本'); return; }
+  const r = await fetch('/api/text/base64', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text, action}) });
+  const j = await r.json();
+  document.getElementById('resultArea').style.display = 'block';
+  if (j.success) {
+    document.getElementById('resultTitle').textContent = action==='encode'?'✅ 编码完成':'✅ 解码完成';
+    document.getElementById('resultContent').innerHTML = `<div style="font-size:13px;word-break:break-all;background:#1a2332;padding:12px;border-radius:8px">${j.result}</div>`;
+  } else {
+    document.getElementById('resultTitle').textContent = '❌ 错误';
+    document.getElementById('resultContent').innerHTML = `<div style="color:#ef4444;font-size:13px">${j.error}</div>`;
+  }
+}
+
+async function doDiff() {
+  const text1 = getText();
+  const text2 = document.getElementById('diffInput2').value;
+  if (!text1 || !text2) { alert('请在两栏都输入文本'); return; }
+  const r = await fetch('/api/text/diff', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text1, text2}) });
+  const j = await r.json();
+  document.getElementById('resultArea').style.display = 'block';
+  document.getElementById('resultTitle').textContent = `📋 对比结果 (相似度 ${j.similarity}%)`;
+  
+  if (j.changed_lines === 0) {
+    document.getElementById('resultContent').innerHTML = '<div style="color:var(--green)">✅ 两段文本完全相同</div>';
+  } else {
+    let html = `<div class="stats">
+      <span class="stat">相同 ${j.same_lines} 行</span>
+      <span class="stat-gray">不同 ${j.changed_lines} 行</span>
+      <span class="stat-gray">新增 ${j.added_lines} 行</span>
+      <span class="stat-gray">删除 ${j.removed_lines} 行</span>
+    </div>`;
+    if (j.changes.length > 0) {
+      html += '<div style="margin-top:8px;font-size:12px">';
+      j.changes.slice(0, 10).forEach(c => {
+        html += `<div style="padding:6px;margin:4px 0;background:rgba(239,68,68,0.1);border-radius:6px">
+          <span style="color:#f87171">- ${c.before}</span>
+          <br><span style="color:#34d399">+ ${c.after}</span>
+        </div>`;
+      });
+      if (j.changes.length > 10) html += `<div style="color:var(--text2);font-size:12px">…还有 ${j.changes.length - 10} 处差异</div>`;
+      html += '</div>';
+    }
+    document.getElementById('resultContent').innerHTML = html;
+  }
+}
+
+function copyText(t) {
+  navigator.clipboard.writeText(t).then(() => alert('已复制')).catch(() => alert('复制失败'));
+}
+</script>
+</body>
+</html>

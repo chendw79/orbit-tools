@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>色彩工具 — Orbit Tools</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--card:#111827;--border:#1e293b;--text:#f1f5f9;--text2:#94a3b8;--accent:#3b82f6;--green:#10b981}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0a0e1a,#1a1040,#0a0e1a);color:var(--text);min-height:100vh}
+.header{padding:15px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(17,24,39,0.8)}
+.header a{color:var(--text2);text-decoration:none;font-size:14px}
+.container{max-width:960px;margin:0 auto;padding:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:16px}
+.tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;background:var(--bg);color:var(--text2);border:1px solid var(--border);border-bottom:none}
+.tab.active{background:var(--card);color:var(--text)}
+input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#1a2332;color:var(--text);font-size:14px;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+label{font-size:13px;color:var(--text2);margin-bottom:4px;display:block}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 24px;cursor:pointer;transition:.2s;font-size:14px}
+.btn:hover{background:#2563eb;transform:translateY(-1px)}
+.color-preview{width:100%;height:80px;border-radius:12px;margin:8px 0}
+.swatch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:8px;margin:12px 0}
+.swatch{height:60px;border-radius:8px;display:flex;align-items:flex-end;justify-content:center;padding:4px;font-size:10px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5);cursor:pointer}
+.drop-zone{border:2px dashed var(--border);border-radius:16px;padding:30px;text-align:center;cursor:pointer;transition:.3s;background:#1a2332}
+.drop-zone:hover{border-color:var(--accent)}
+.result-box{display:none}
+.color-row{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}
+.color-block{width:40px;height:40px;border-radius:8px}
+.download-img{max-width:200px;max-height:150px;border-radius:8px;margin:8px 0}
+</style>
+</head>
+<body>
+<div class="header"><a href="/">← 返回</a><span style="font-weight:600">🎨 色彩工具箱</span></div>
+<div class="container">
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('palette')">🎨 调色板</div>
+      <div class="tab" onclick="switchTab('extract')">🖼️ 图片取色</div>
+      <div class="tab" onclick="switchTab('gradient')">🌈 渐变色</div>
+      <div class="tab" onclick="switchTab('convert')">🔄 色彩转换</div>
+    </div>
+    
+    <!-- 调色板 -->
+    <div id="paletteMode">
+      <label>基础色</label>
+      <div class="color-row">
+        <input type="color" id="baseColor" value="#4285f4" style="width:60px;height:40px;padding:2px">
+        <input id="baseColorHex" value="#4285f4" style="flex:1">
+      </div>
+      <label style="margin-top:8px">方案</label>
+      <select id="scheme">
+        <option value="monochromatic">单色渐变</option>
+        <option value="complementary">互补色</option>
+        <option value="triadic">三等分</option>
+        <option value="analogous">类似色</option>
+      </select>
+      <button class="btn" onclick="genPalette()" style="margin-top:10px;width:100%">🎨 生成调色板</button>
+      <div class="swatch-grid" id="paletteResult"></div>
+    </div>
+    
+    <!-- 图片取色 -->
+    <div id="extractMode" style="display:none">
+      <div class="drop-zone" id="dropZone">
+        拖拽图片到此处<br><span style="font-size:12px;color:var(--text2)">或点击选择</span>
+        <input type="file" id="fileInput" accept="image/*" style="display:none">
+      </div>
+      <div id="extractResult" class="result-box">
+        <div class="swatch-grid" id="colorSwatches"></div>
+        <div id="extractPreview"></div>
+      </div>
+    </div>
+    
+    <!-- 渐变色 -->
+    <div id="gradientMode" style="display:none">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">预设渐变色方案</p>
+      <div id="gradientList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px"></div>
+      <p style="font-size:13px;color:var(--text2);margin:12px 0">自定义渐变色</p>
+      <div class="color-row">
+        <input type="color" id="gradStart" value="#FF6B35" style="width:60px;height:40px;padding:2px">
+        <span style="color:var(--text2)">→</span>
+        <input type="color" id="gradEnd" value="#F7C59F" style="width:60px;height:40px;padding:2px">
+        <input id="gradCustom" style="flex:1" readonly>
+      </div>
+      <button class="btn" onclick="previewGradient()" style="margin-top:8px">预览</button>
+      <div class="color-preview" id="gradPreview" style="background:linear-gradient(135deg,#FF6B35,#F7C59F)"></div>
+    </div>
+    
+    <!-- 色彩转换 -->
+    <div id="convertMode" style="display:none">
+      <input id="convertInput" placeholder="输入 #HEX 或 rgb(r,g,b)" value="#4285f4">
+      <button class="btn" onclick="doConvert()" style="margin-top:8px;width:100%">转换</button>
+      <div class="result-box" id="convertResult">
+        <div class="color-preview" id="convertPreview"></div>
+        <div id="convertDetails" style="font-size:13px;line-height:1.8"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="'${tab}'"]`).classList.add('active');
+  ['paletteMode','extractMode','gradientMode','convertMode'].forEach(id => {
+    document.getElementById(id).style.display = id.includes(tab) ? 'block' : 'none';
+  });
+}
+
+// --- 调色板 ---
+document.getElementById('baseColor').addEventListener('input', function() {
+  document.getElementById('baseColorHex').value = this.value;
+});
+document.getElementById('baseColorHex').addEventListener('input', function() {
+  if (/^#[0-9a-f]{6}$/i.test(this.value)) document.getElementById('baseColor').value = this.value;
+});
+
+async function genPalette() {
+  const color = document.getElementById('baseColorHex').value;
+  const scheme = document.getElementById('scheme').value;
+  const r = await fetch('/api/color/palette', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({color, scheme}) });
+  const j = await r.json();
+  if (j.success) {
+    const grid = document.getElementById('paletteResult');
+    grid.innerHTML = j.colors.map(c => {
+      const rgb = c.hex;
+      const isLight = /#([0-9a-f]{2}){3}/i.test(rgb);
+      return `<div class="swatch" style="background:${rgb};color:${isLight?'#000':'#fff'}" onclick="copyColor('${rgb}')" title="点击复制">${rgb}</div>`;
+    }).join('');
+  }
+}
+
+// --- 图片取色 ---
+document.getElementById('dropZone').addEventListener('click', () => document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', async function(e) {
+  if (!e.target.files.length) return;
+  const fd = new FormData();
+  fd.append('image', e.target.files[0]);
+  const r = await fetch('/api/color/extract', { method:'POST', body: fd });
+  const j = await r.json();
+  if (j.success) {
+    document.getElementById('extractResult').style.display = 'block';
+    document.getElementById('colorSwatches').innerHTML = j.colors.map(c =>
+      `<div class="swatch" style="background:${c.hex}" title="${c.hex} ${c.ratio}%">${c.hex}<br><small>${c.ratio}%</small></div>`
+    ).join('');
+  }
+});
+
+// --- 渐变色 ---
+async function loadGradients() {
+  const r = await fetch('/api/color/gradients');
+  const j = await r.json();
+  document.getElementById('gradientList').innerHTML = j.gradients.map(g =>
+    `<div class="card" style="padding:0;overflow:hidden;cursor:pointer" onclick="setGradient('${g.start}','${g.end}')">
+      <div style="height:60px;background:linear-gradient(135deg,${g.start},${g.end})"></div>
+      <div style="padding:6px;font-size:12px;text-align:center">${g.name}</div>
+    </div>`
+  ).join('');
+}
+loadGradients();
+
+function setGradient(start, end) {
+  document.getElementById('gradStart').value = start;
+  document.getElementById('gradEnd').value = end;
+  previewGradient();
+}
+
+function previewGradient() {
+  const s = document.getElementById('gradStart').value;
+  const e = document.getElementById('gradEnd').value;
+  const css = `linear-gradient(135deg,${s},${e})`;
+  document.getElementById('gradPreview').style.background = css;
+  document.getElementById('gradCustom').value = css;
+}
+
+// --- 色彩转换 ---
+async function doConvert() {
+  const input = document.getElementById('convertInput').value.trim();
+  const r = await fetch('/api/color/convert', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({color: input}) });
+  const j = await r.json();
+  if (j.success) {
+    document.getElementById('convertResult').style.display = 'block';
+    document.getElementById('convertPreview').style.background = j.hex;
+    document.getElementById('convertDetails').innerHTML = `
+      <div>HEX: <strong>${j.hex}</strong> <button style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px" onclick="copyColor('${j.hex}')">复制</button></div>
+      <div>RGB: rgb(${j.r}, ${j.g}, ${j.b})</div>
+      <div>HSL: hsl(${j.h}°, ${j.s}%, ${j.l}%)</div>
+    `;
+  } else {
+    alert('无效颜色: ' + j.error);
+  }
+}
+
+function copyColor(c) { navigator.clipboard.writeText(c).then(() => {}); }
+</script>
+</body>
+</html>
