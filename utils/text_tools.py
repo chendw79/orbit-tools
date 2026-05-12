@@ -1,37 +1,25 @@
 """
 Orbit Tools — 文本智能处理工具集
 
-功能：
-- AI 润色 (polish)
-- AI 翻译 (translate)
-- AI 摘要 (summarize)
-- AI 改写 (rewrite)
-- 字数统计 (word count)
-- 敏感词检测 (sensitive words)
+功能：统计 / JSON / Base64 / Diff / 敏感词检测
 """
 
 import re
 import json
+import base64
 import hashlib
-from typing import Optional
+from typing import Dict, List, Optional, Any
 
-# ─── 基础文本统计 ─────────────────────────────────
 
-def word_count(text: str) -> dict:
+def word_count(text: str) -> Dict[str, Any]:
     """文本统计信息"""
-    # 中文字数
     chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
-    # 英文单词数
     english_words = len(re.findall(r'[a-zA-Z]+', text))
-    # 总字符数
     total_chars = len(text)
-    # 段落数
     paragraphs = len([p for p in text.split('\n') if p.strip()])
-    # 标点数
     punctuation = len(re.findall(r'[，。！？、；：""''（）【】《》—.,!?;:\'"()\[\]-]', text))
-    # 数字数
     numbers = len(re.findall(r'\d+', text))
-    
+
     return {
         'chinese_chars': chinese_chars,
         'english_words': english_words,
@@ -39,35 +27,32 @@ def word_count(text: str) -> dict:
         'paragraphs': max(paragraphs, 1),
         'punctuation': punctuation,
         'numbers': numbers,
-        'estimated_reading_time': max(1, round(total_chars / 300)),  # 分钟（中文阅读速度）
+        'estimated_reading_time': max(1, round(total_chars / 300)),
         'text_hash': hashlib.md5(text.encode()).hexdigest()[:8],
     }
 
 
 # ─── 敏感词检测 ─────────────────────────────────
 
-# 常见敏感词（演示版）
-_SENSITIVE_WORDS = [
-    # 这里放一些演示用的模式
-    r'(密码|password)\s*[=:：]\s*\S+',
-    r'银行卡\s*\d{16,19}',
-    r'手机号\s*1[3-9]\d{9}',
-    r'身份证\s*\d{17}[\dXx]',
+_PATTERNS = [
+    (r'(密码|password)\s*[=:：]\s*\S+', '凭证泄露'),
+    (r'银行卡\s*\d{16,19}', '银行卡号'),
+    (r'手机号\s*1[3-9]\d{9}', '手机号'),
+    (r'身份证\s*\d{17}[\dXx]', '身份证号'),
 ]
 
 
-def check_sensitive(text: str) -> dict:
+def check_sensitive(text: str) -> Dict[str, Any]:
     """检测文本中的敏感信息"""
-    findings = []
-    for i, pattern in enumerate(_SENSITIVE_WORDS):
+    findings: List[Dict[str, str]] = []
+    for pattern, label in _PATTERNS:
         matches = re.findall(pattern, text)
         for m in matches:
             findings.append({
-                'pattern': pattern,
-                'match': m[:20] + '...' if len(str(m)) > 20 else m,
-                'type': ['凭证泄露', '银行卡号', '手机号', '身份证号'][i],
+                'type': label,
+                'match': (str(m)[:20] + '...') if len(str(m)) > 20 else str(m),
             })
-    
+
     return {
         'has_sensitive': len(findings) > 0,
         'findings': findings,
@@ -77,14 +62,13 @@ def check_sensitive(text: str) -> dict:
 
 # ─── 文本差异对比 ─────────────────────────────────
 
-def text_diff(text1: str, text2: str) -> dict:
-    """简单的文本对比"""
+def text_diff(text1: str, text2: str) -> Dict[str, Any]:
+    """简单的行级文本对比"""
     lines1, lines2 = text1.split('\n'), text2.split('\n')
-    
-    same_lines = 0
-    diff_lines = []
-    
     max_lines = max(len(lines1), len(lines2))
+    same_lines = 0
+    diff_lines: List[Dict[str, Any]] = []
+
     for i in range(max_lines):
         l1 = lines1[i] if i < len(lines1) else ''
         l2 = lines2[i] if i < len(lines2) else ''
@@ -93,10 +77,10 @@ def text_diff(text1: str, text2: str) -> dict:
         else:
             diff_lines.append({
                 'line': i + 1,
-                'before': l1[:100] + '...' if len(l1) > 100 else l1,
-                'after': l2[:100] + '...' if len(l2) > 100 else l2,
+                'before': (l1[:100] + '...') if len(l1) > 100 else l1,
+                'after': (l2[:100] + '...') if len(l2) > 100 else l2,
             })
-    
+
     return {
         'total_lines': max_lines,
         'same_lines': same_lines,
@@ -104,13 +88,13 @@ def text_diff(text1: str, text2: str) -> dict:
         'added_lines': max(0, len(lines2) - len(lines1)),
         'removed_lines': max(0, len(lines1) - len(lines2)),
         'similarity': round(same_lines / max(max_lines, 1) * 100, 1),
-        'changes': diff_lines[:20],  # 只返回前20处
+        'changes': diff_lines[:20],
     }
 
 
-# ─── 文本格式化 ─────────────────────────────────
+# ─── JSON 格式化 ─────────────────────────────────
 
-def format_json(text: str) -> dict:
+def format_json(text: str) -> Dict[str, Any]:
     """格式化/校验 JSON"""
     text = text.strip()
     try:
@@ -134,30 +118,18 @@ def format_json(text: str) -> dict:
         }
 
 
-# ─── Base64 编解码 ──────────────────────────────
+# ─── Base64 ──────────────────────────────────────
 
-import base64
-
-
-def base64_encode(text: str) -> dict:
-    """Base64编码"""
+def base64_encode(text: str) -> Dict[str, Any]:
+    """Base64 编码"""
     encoded = base64.b64encode(text.encode()).decode()
     return {'success': True, 'result': encoded, 'type': 'encode'}
 
 
-def base64_decode(text: str) -> dict:
-    """Base64解码"""
+def base64_decode(text: str) -> Dict[str, Any]:
+    """Base64 解码"""
     try:
         decoded = base64.b64decode(text.encode()).decode()
         return {'success': True, 'result': decoded, 'type': 'decode'}
     except Exception as e:
-        return {'success': False, 'error': str(e), 'type': 'decode'}
-
-
-if __name__ == '__main__':
-    # 测试
-    test = "今天天气真好，我们来测试一下文本统计功能。Hello World! 12345"
-    print(word_count(test))
-    
-    json_text = '{"name": "Orbit", "tools": ["ppt", "image"]}'
-    print(format_json(json_text)['formatted'])
+        return {'success': False, 'error': f'无效的 Base64 编码: {str(e)}', 'type': 'decode'}
